@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>签名 · 标签页重命名</title><link rel="stylesheet" href="style.css"></head>
+<body class="popup">
+  <header class="brand"><img src="icons/48.png" width="32" height="32" alt=""><div><strong>签名</strong><span>给标签页一个好认的名字</span></div></header>
+  <main>
+    <div class="site-line"><span id="mode" class="badge">正在读取</span><span id="host"></span></div>
+    <p id="original" class="original" title="网页原标题"></p>
+    <form id="rename-form">
+      <label for="name">标签页名称</label>
+      <input id="name" name="name" autocomplete="off" placeholder="例如：退款排查" required aria-describedby="name-help" disabled>
+      <p id="name-help" class="hint">仅当前标签页生效，刷新后保留。</p>
+      <button id="save" class="primary full" type="submit" disabled>保存名称</button>
+    </form>
+    <div class="actions"><button id="restore" class="text-button" disabled>恢复网页标题</button><button id="use-rule" class="text-button" hidden disabled>使用网址规则</button><button id="retry" class="text-button" hidden>重新读取</button></div>
+    <p id="status" role="status" aria-live="polite"></p>
+    <section class="rule-teaser"><div><strong>这个网址，每次都这样叫</strong><p>设置规则，下次打开自动命名。</p></div><button id="add-rule" class="secondary" disabled>设置规则</button></section>
+  </main>
+  <footer><span>本机保存，无需联网</span><button id="manage" class="text-button">管理网址规则</button></footer>
+  <script type="module" src="popup.js"></script>
+</body></html>

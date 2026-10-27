@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "签名 · 标签页重命名",
+  "description": "给每个标签页起一个好认的名字，支持完整网址、前缀、域名和通配符自动命名。所有数据留在本机。",
+  "version": "1.1.4",
+  "minimum_chrome_version": "120",
+  "permissions": ["tabs", "storage", "scripting", "webNavigation"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "重命名当前标签页" },
+  "options_page": "rules.html",
+  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none';" }
+}

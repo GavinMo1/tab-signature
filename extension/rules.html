@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>网址规则 · 签名</title><link rel="stylesheet" href="style.css"></head>
+<body class="rules-page">
+  <header class="page-header"><a href="rules.html" class="brand"><img src="icons/48.png" width="36" height="36" alt=""><div><strong>签名</strong><span>标签页重命名</span></div></a><span class="local-note">所有规则仅保存在这台电脑</span></header>
+  <main class="rules-layout">
+    <section class="rules-intro"><h1>让网址有个熟悉的名字。</h1><p>为常用页面设置名称，下次打开就能一眼认出。<br>某个标签页需要另作他用？手动改名会优先生效。</p></section>
+    <section class="editor" aria-labelledby="editor-heading">
+      <div class="section-heading"><h2 id="editor-heading">新建网址规则</h2><button id="cancel-edit" class="text-button" hidden>取消编辑</button></div>
+      <form id="rule-form">
+        <div class="field match-field"><label for="match-type">匹配方式</label><select id="match-type"><option value="exact">完整网址 · 完全相同才匹配</option><option value="prefix">网址前缀 · 以此网址开头</option><option value="domain">域名 · 该主机的所有页面</option><option value="wildcard">通配符 · 用 * 匹配任意内容</option></select></div>
+        <div class="field"><label id="url-label" for="url">完整网址</label><input id="url" type="text" placeholder="https://example.com/dashboard" required autocomplete="off"><p id="match-help" class="hint">精确匹配，包含路径、? 后的参数和 # 后的内容。</p></div>
+        <div class="field"><label for="rule-name">自动命名为</label><input id="rule-name" placeholder="例如：测试环境 · 订单后台" required autocomplete="off"><p class="hint">最多 80 个字符，支持中文与 emoji。</p></div>
+        <label class="check"><input id="enabled" type="checkbox" checked>启用此规则</label>
+        <button class="primary" id="save-rule" type="submit" disabled>保存规则</button>
+      </form>
+      <p id="status" role="status" aria-live="polite"></p>
+    </section>
+    <section class="rule-library" aria-labelledby="list-heading"><div class="section-heading"><h2 id="list-heading">已保存的规则 <span id="count">0</span></h2><label class="search-label"><span class="sr-only">搜索规则</span><input id="search" type="search" placeholder="搜索名称或网址"></label></div>
+      <p class="hint">从上到下匹配，第一条已启用且命中的规则生效。用“上移 / 下移”调整优先级。</p><div id="rules" tabindex="-1" aria-label="已保存的规则"></div><div id="empty" class="empty"><div class="empty-tabs" aria-hidden="true"><span>管理后台</span><span>退款排查</span><span>对照配置</span></div><h3>从一个经常认错的标签页开始</h3><p>在上方填写匹配条件和名称，保存你的第一条规则。</p></div>
+    </section>
+    <p class="footnote">规则变更会应用到已打开的匹配页面。手动名称及“暂时忽略规则”的标签页不受影响。<br>Chrome 设置页、扩展商店和内置 PDF 阅读器等受限页面无法改名。</p>
+  </main>
+  <dialog id="delete-dialog"><form method="dialog"><h2>删除这条规则？</h2><p id="delete-name"></p><p>相关标签页将使用下一条匹配规则，没有匹配时恢复网页标题。</p><div class="dialog-actions"><button value="cancel" class="secondary">保留规则</button><button value="delete" class="danger">删除规则</button></div></form></dialog>
+  <script type="module" src="rules.js"></script>
+</body></html>

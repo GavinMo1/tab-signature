@@ -1,0 +1,17 @@
+{
+  "name": "tab-signature",
+  "version": "1.1.4",
+  "private": true,
+  "description": "Chrome tab renaming with manual names and URL matching rules",
+  "author": "Gavin",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "devDependencies": { "playwright": "1.64.1" },
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "test:browser": "node tests/browser.mjs",
+    "test:resources": "node tests/resources.mjs",
+    "test:package": "node tests/package-smoke.mjs",
+    "pack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1"
+  }
+}

@@ -1,0 +1,14 @@
+/node_modules/
+/dist/
+/backups/
+/test-results/
+/docs/review-*.md
+/docs/fix-plan-*.md
+/docs/verification*.md
+.env
+.env.*
+!.env.example
+*.log
+__pycache__/
+Thumbs.db
+.DS_Store
