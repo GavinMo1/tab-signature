@@ -34,6 +34,33 @@ function harness(raw = []) {
   return { chrome, tabs, applied, request, mutation, context, idle, send: fn => { sender = fn; } };
 }
 const rule = { id: 'old', url: 'https://example.com/a', name: 'OLD', enabled: true };
+test('first permission grant finishes staged rename with no popup completion message', async () => {
+  const h = harness(); let permitted = false;
+  h.chrome.permissions.contains = async () => permitted;
+  const staged = await h.request({ type: 'prepareRename', tabId: 1, url: rule.url, name: '第一次输入', token: 'one' });
+  assert.equal(staged.pending, true); assert.equal(h.chrome.storage.session.data['tab:1'], undefined);
+  permitted = true; h.chrome.permissions.onAdded.fire();
+  await waitFor(() => h.chrome.storage.session.data['tab:1']?.manual === '第一次输入'); await waitFor(h.idle);
+  assert.equal(h.applied.at(-1).name, '第一次输入');
+  assert.equal(h.chrome.storage.session.data['renameDraft:1'], undefined);
+});
+test('permission arriving before draft storage still applies once; denial, navigation and expiry cannot rename later', async () => {
+  const granted = harness();
+  await granted.request({ type: 'prepareRename', tabId: 1, url: rule.url, name: '已授权竞态', token: 'early' });
+  assert.equal(granted.chrome.storage.session.data['tab:1'].manual, '已授权竞态');
+  for (const mode of ['deny', 'navigate', 'expire', 'close']) {
+    const h = harness(); let permitted = false; h.chrome.permissions.contains = async () => permitted;
+    await h.request({ type: 'prepareRename', tabId: 1, url: rule.url, name: '不能应用', token: mode });
+    if (mode === 'deny') await h.request({ type: 'cancelRename', tabId: 1, token: mode });
+    if (mode === 'navigate') h.tabs.get(1).url = 'https://example.com/new';
+    if (mode === 'expire') h.chrome.storage.session.data['renameDraft:1'].created = Date.now() - 121000;
+    if (mode === 'close') { h.tabs.delete(1); h.chrome.tabs.onRemoved.fire(1); }
+    permitted = true; h.chrome.permissions.onAdded.fire();
+    await new Promise(resolve => setTimeout(resolve, 40)); await waitFor(h.idle);
+    assert.equal(h.chrome.storage.session.data['tab:1']?.manual, undefined, mode);
+    assert.equal(h.chrome.storage.session.data['renameDraft:1'], undefined, mode);
+  }
+});
 test('running synchronization reruns latest edit, disable, delete, priority and URL updates', async () => {
   for (const action of ['edit', 'disable', 'delete', 'priority', 'navigate']) {
     const h = harness([rule, { ...rule, id: 'second', type: 'prefix', url: 'https://example.com/', name: 'SECOND' }]);

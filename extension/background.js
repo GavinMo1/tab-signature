@@ -50,6 +50,31 @@ function drainSyncs() {
   }
 }
 const key = id => `tab:${id}`;
+const draftKey = id => `renameDraft:${id}`;
+async function renameDraft(id, url) {
+  const draft = (await chrome.storage.session.get(draftKey(id)))[draftKey(id)];
+  if (!draft) return null;
+  if (draft.url !== url || Date.now() - draft.created > 120000) {
+    await chrome.storage.session.remove(draftKey(id)); return null;
+  }
+  return draft;
+}
+async function finishRename(id, token) {
+  const tab = await chrome.tabs.get(id), draft = await renameDraft(id, tab.url);
+  if (!draft || draft.token !== token) return null;
+  if (!await allowed(draft.url)) return null;
+  const result = await uiMessage({ type: 'rename', tabId: id, url: draft.url, name: draft.name });
+  await chrome.storage.session.remove(draftKey(id));
+  return result;
+}
+async function resumeRenames() {
+  for (const tab of await chrome.tabs.query({})) {
+    const draft = await renameDraft(tab.id, tab.url);
+    if (draft && await allowed(draft.url)) {
+      inTab(tab.id, () => finishRename(tab.id, draft.token)).catch(() => {});
+    }
+  }
+}
 async function rules() {
   const value = (await chrome.storage.local.get('rules')).rules;
   const raw = value === undefined ? [] : value;
@@ -126,7 +151,8 @@ async function readTab(id) {
       if (details?.url === url) original = details.original;
     } catch {}
   }
-  return { supported: true, permitted, url, ...chooseTitle(url, saved, list), title: tab.title, original, rules: list };
+  const draft = await renameDraft(id, url);
+  return { supported: true, permitted, url, ...chooseTitle(url, saved, list), title: tab.title, original, rules: list, draftName: draft?.name };
 }
 async function registerSites() {
   const permissions = await chrome.permissions.getAll();
@@ -138,6 +164,25 @@ async function registerSites() {
   }]);
 }
 async function uiMessage(message) {
+  if (message.type === 'prepareRename') {
+    const tab = await chrome.tabs.get(message.tabId);
+    if (!supported(tab.url) || normalizeURL(tab.url) !== message.url) throw new Error('页面已跳转，请重新打开弹窗再试');
+    const draft = { token: message.token, url: message.url, name: cleanName(message.name), created: Date.now() };
+    if (typeof draft.token !== 'string' || !draft.token) throw new Error('无效的保存请求');
+    await chrome.storage.session.set({ [draftKey(tab.id)]: draft });
+    // Permission may already have arrived while this message was being stored.
+    const result = await finishRename(tab.id, draft.token);
+    return { pending: !result, ...result };
+  }
+  if (message.type === 'finishRename') {
+    const result = await finishRename(message.tabId, message.token);
+    return result || await readTab(message.tabId);
+  }
+  if (message.type === 'cancelRename') {
+    const tab = await chrome.tabs.get(message.tabId), draft = await renameDraft(tab.id, tab.url);
+    if (draft?.token === message.token) await chrome.storage.session.remove(draftKey(tab.id));
+    return {};
+  }
   if (message.type === 'listRules') {
     const list = await rules();
     const revision = await ruleRevision(list);
@@ -206,13 +251,14 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   } else if (isUI || isExtensionPage) {
     const operation = message.type === 'getTab' ? readTab(message.tabId)
       : message.type === 'listRules' ? uiMessage(message)
-      : ['rename', 'restore', 'useRule'].includes(message.type) ? inTab(message.tabId, () => uiMessage(message))
+      : ['rename', 'restore', 'useRule', 'prepareRename', 'finishRename', 'cancelRename'].includes(message.type) ? inTab(message.tabId, () => uiMessage(message))
       : ordered(() => uiMessage(message));
     operation.then(result => reply({ ok: true, ...result }), error => reply({ ok: false, error: error.message }));
   } else return;
   return true;
 });
 chrome.tabs.onUpdated.addListener((id, info) => {
+  if (info.url) inTab(id, () => renameDraft(id, info.url)).catch(() => {});
   if (info.url || info.status === 'complete' || info.frozen === false || info.discarded === false) scheduleSync(id);
 });
 chrome.tabs.onActivated.addListener(({ tabId }) => {
@@ -221,14 +267,14 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
 });
 chrome.tabs.onRemoved.addListener(id => {
   closingTabs.add(id); deferredTabs.delete(id); dirtySync.delete(id);
-  inTab(id, () => chrome.storage.session.remove(key(id))).finally(() => {
+  inTab(id, async () => { await chrome.storage.session.remove(key(id)); await chrome.storage.session.remove(draftKey(id)); }).finally(() => {
     if (!pendingSync.has(id)) closingTabs.delete(id);
   }).catch(() => {});
 });
 for (const event of [chrome.webNavigation.onHistoryStateUpdated, chrome.webNavigation.onReferenceFragmentUpdated]) {
   event.addListener(details => { if (details.frameId === 0) scheduleSync(details.tabId); });
 }
-chrome.permissions.onAdded.addListener(() => ordered(async () => { await registerSites(); await syncAll(); }));
+chrome.permissions.onAdded.addListener(() => ordered(async () => { await registerSites(); await resumeRenames(); await syncAll(); }));
 chrome.permissions.onRemoved.addListener(() => ordered(async () => { await registerSites(); await syncAll(); }));
 chrome.runtime.onInstalled.addListener(() => ordered(async () => { await registerSites(); await syncAll(); }));
 chrome.runtime.onStartup.addListener(() => ordered(async () => { await registerSites(); await syncAll(); }));

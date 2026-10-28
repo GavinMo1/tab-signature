@@ -15,7 +15,7 @@ function paint(data, updateInput = true) {
   $('#host').textContent = data.url ? new URL(data.url).hostname : '';
   $('#original').textContent = data.original || data.title || '网页尚未提供标题';
   $('#original').title = data.original || data.title || '';
-  if (updateInput) $('#name').value = data.name || '';
+  if (updateInput) $('#name').value = data.draftName || data.name || '';
   controls();
   $('#use-rule').hidden = !data.supported || data.mode === 'rule' || !inspectRules(data.rules || []).some(r => !r.invalid && r.enabled && matchesRule(data.url, r));
   if (!data.supported) status(data.reason, true);
@@ -28,8 +28,25 @@ async function action(type, name) {
   if (phase !== 'ready' || working || !current?.supported || current.unavailable) return;
   working = true; controls();
   try {
-  await grant(current.url);
-  const result = await request({ type, tabId, url: current.url, name });
+  let result;
+  if (type === 'rename' && !current.permitted) {
+    const token = crypto.randomUUID();
+    // Send the intent before requesting permission, without awaiting anything:
+    // the request retains the click's user gesture, and the background owns saving
+    // even if Chrome destroys this popup while showing the native prompt.
+    const prepared = request({ type: 'prepareRename', tabId, url: current.url, name, token });
+    const permission = grant(current.url);
+    const [staged, granted] = await Promise.allSettled([prepared, permission]);
+    if (granted.status === 'rejected') {
+      await request({ type: 'cancelRename', tabId, token }).catch(() => {});
+      throw granted.reason;
+    }
+    if (staged.status === 'rejected') throw staged.reason;
+    result = await request({ type: 'finishRename', tabId, token });
+  } else {
+    await grant(current.url);
+    result = await request({ type, tabId, url: current.url, name });
+  }
   paint({ ...current, ...result });
   status(type === 'rename' ? '名称已保存' : type === 'restore' ? '已恢复网页标题，此标签页暂时忽略自动规则。' : '已使用网址规则');
   } finally { working = false; controls(); }

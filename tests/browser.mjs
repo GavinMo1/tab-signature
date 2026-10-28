@@ -57,6 +57,23 @@ try {
   const tabId = async page => (await ui.evaluate(async pageURL => (await chrome.tabs.query({})).filter(t => t.url === pageURL).map(t => t.id), page.url())).at(-1);
   const first = await context.newPage(); await first.goto(url); const one = await tabId(first);
   const second = await context.newPage(); await second.goto(url); const two = await tabId(second);
+  const permissionPopup = await context.newPage();
+  await permissionPopup.addInitScript(() => {
+    const send = chrome.runtime.sendMessage.bind(chrome.runtime);
+    chrome.runtime.sendMessage = async message => {
+      const result = await send(message);
+      return message.type === 'getTab' ? { ...result, permitted: false } : result;
+    };
+    // Model Chrome destroying an action popup during its native permission prompt.
+    chrome.permissions.request = () => new Promise(() => {});
+  });
+  await permissionPopup.goto(`chrome-extension://${id}/popup.html?tabId=${one}`);
+  await permissionPopup.locator('#name').fill('首次授权无需重输'); await permissionPopup.locator('#save').click();
+  await permissionPopup.close();
+  await title(first, '首次授权无需重输');
+  await message({ type: 'useRule', tabId: one, url });
+  await title(first, '管理后台');
+  pass('submitted rename survives popup destruction during a simulated pending permission prompt');
   const loadingPopup = await context.newPage();
   loadingPopup.on('pageerror', error => errors.push(error.message));
   await loadingPopup.addInitScript(() => {
